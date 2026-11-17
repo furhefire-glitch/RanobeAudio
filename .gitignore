@@ -1,0 +1,30 @@
+# Gradle & Android build artifacts
+.gradle/
+.kotlin/
+build/
+app/build/
+local.properties
+.cxx/
+.externalNativeBuild/
+captures/
+
+# IDE & OS
+.idea/
+*.iml
+.DS_Store
+
+# Python prototype & tests (only Android is published)
+.venv/
+__pycache__/
+*.py[cod]
+out/
+tts.py
+tts_core.py
+tts_gui.py
+Запуск.bat
+latest_silero_models.yml
+
+# Reference materials & candidate donor files
+reference_parsers/
+reference_tts/
+stage5-native-candidate-*/

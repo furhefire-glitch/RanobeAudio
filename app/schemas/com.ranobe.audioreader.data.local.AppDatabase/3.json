@@ -1,0 +1,451 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "e4329787a575f5d06afd31447e10cb00",
+    "entities": [
+      {
+        "tableName": "novels",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceId` TEXT NOT NULL, `path` TEXT NOT NULL, `name` TEXT NOT NULL, `coverUrl` TEXT, `author` TEXT, `artist` TEXT, `genres` TEXT, `summary` TEXT, `status` TEXT NOT NULL, `rating` REAL, `inLibrary` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, `lastReadAt` INTEGER, `lastReadChapterId` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coverUrl",
+            "columnName": "coverUrl",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "author",
+            "columnName": "author",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "artist",
+            "columnName": "artist",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "genres",
+            "columnName": "genres",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "inLibrary",
+            "columnName": "inLibrary",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addedAt",
+            "columnName": "addedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastReadAt",
+            "columnName": "lastReadAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "lastReadChapterId",
+            "columnName": "lastReadChapterId",
+            "affinity": "INTEGER",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_novels_sourceId_path",
+            "unique": true,
+            "columnNames": [
+              "sourceId",
+              "path"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_novels_sourceId_path` ON `${TABLE_NAME}` (`sourceId`, `path`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "chapters",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `novelId` INTEGER NOT NULL, `path` TEXT NOT NULL, `name` TEXT NOT NULL, `chapterNumber` REAL, `releaseTime` TEXT, `scanlator` TEXT, `sortOrder` INTEGER NOT NULL, `html` TEXT, `textDownloadedAt` INTEGER, `audioPath` TEXT, `audioStatus` TEXT NOT NULL, `audioBytes` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `positionMs` INTEGER NOT NULL, `isRead` INTEGER NOT NULL, `listenedAt` INTEGER, `renderedAt` INTEGER, `renderedText` TEXT, `audioModelId` TEXT, `audioSpeaker` TEXT, `audioSampleRate` INTEGER, `audioBitrate` INTEGER, FOREIGN KEY(`novelId`) REFERENCES `novels`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "novelId",
+            "columnName": "novelId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chapterNumber",
+            "columnName": "chapterNumber",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "releaseTime",
+            "columnName": "releaseTime",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "scanlator",
+            "columnName": "scanlator",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "html",
+            "columnName": "html",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "textDownloadedAt",
+            "columnName": "textDownloadedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "audioPath",
+            "columnName": "audioPath",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "audioStatus",
+            "columnName": "audioStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "audioBytes",
+            "columnName": "audioBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "durationMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "positionMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isRead",
+            "columnName": "isRead",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "listenedAt",
+            "columnName": "listenedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "renderedAt",
+            "columnName": "renderedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "renderedText",
+            "columnName": "renderedText",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "audioModelId",
+            "columnName": "audioModelId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "audioSpeaker",
+            "columnName": "audioSpeaker",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "audioSampleRate",
+            "columnName": "audioSampleRate",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "audioBitrate",
+            "columnName": "audioBitrate",
+            "affinity": "INTEGER",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_chapters_novelId",
+            "unique": false,
+            "columnNames": [
+              "novelId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_chapters_novelId` ON `${TABLE_NAME}` (`novelId`)"
+          },
+          {
+            "name": "index_chapters_novelId_path",
+            "unique": true,
+            "columnNames": [
+              "novelId",
+              "path"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_chapters_novelId_path` ON `${TABLE_NAME}` (`novelId`, `path`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "novels",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "novelId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "chunk_timings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `chapterId` INTEGER NOT NULL, `chunkIndex` INTEGER NOT NULL, `startCharIndex` INTEGER NOT NULL, `endCharIndex` INTEGER NOT NULL, `startMs` INTEGER NOT NULL, `endMs` INTEGER NOT NULL, FOREIGN KEY(`chapterId`) REFERENCES `chapters`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chapterId",
+            "columnName": "chapterId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chunkIndex",
+            "columnName": "chunkIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startCharIndex",
+            "columnName": "startCharIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endCharIndex",
+            "columnName": "endCharIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMs",
+            "columnName": "startMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMs",
+            "columnName": "endMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_chunk_timings_chapterId",
+            "unique": false,
+            "columnNames": [
+              "chapterId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_chunk_timings_chapterId` ON `${TABLE_NAME}` (`chapterId`)"
+          },
+          {
+            "name": "index_chunk_timings_chapterId_chunkIndex",
+            "unique": true,
+            "columnNames": [
+              "chapterId",
+              "chunkIndex"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_chunk_timings_chapterId_chunkIndex` ON `${TABLE_NAME}` (`chapterId`, `chunkIndex`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "chapters",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "chapterId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "replacement_rules",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `pattern` TEXT NOT NULL, `replacement` TEXT NOT NULL, `isRegex` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pattern",
+            "columnName": "pattern",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replacement",
+            "columnName": "replacement",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isRegex",
+            "columnName": "isRegex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e4329787a575f5d06afd31447e10cb00')"
+    ]
+  }
+}

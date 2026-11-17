@@ -1,0 +1,8 @@
+This application includes adapted source code from RuVoice TTS by kost-t-human:
+https://github.com/kost-t-human/ruvoice-tts
+
+The com.ranobe.audioreader.tts package is derived from ru.kost.ruvoice: package names were changed for integration. SileroTtsEngine adapts the model inference pipeline for chapter rendering. The Russian linguistic assets and accentor/homograph modules are redistributed from RuVoice source and its v1.1.3 lite release.
+
+The local ExecuTorch 1.5.0 AAR retains the upstream Java classes and replaces only jni/arm64-v8a/libexecutorch.so with the ARMv8.0-compatible library from the official RuVoice v1.1.3 lite APK, release commit 6ae704fc52c029f444a29bd78ee1b59b9e92bbf0. The native library SHA-256 is 1974ea1c337082027c94306233fa36d3980b85477e8ec2e0674175ebfe14596a. This follows the upstream tools/build_executorch_aar.sh recipe; LLM/ASR APIs are not used or provided by this native build.
+
+RuVoice source is provided under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International; see RuVoice.LICENSE.txt. This notice does not replace the licenses of individual model packs, runtimes, dictionaries or Unicode data. Downloaded packs retain their upstream pack.json license and source metadata. Unicode data terms are included in cldr.LICENSE.txt.
