@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.selection.selectable
@@ -28,6 +29,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -76,6 +78,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private data class NovelDetails(val novel: NovelEntity?, val chapters: List<ChapterEntity>)
+private enum class ChapterFilter(val title: String) { ALL("Все"), DOWNLOADED("Скачанные"), AUDIO("Озвученные"), UNREAD("Непрочитанные") }
 private enum class ChapterAction { DOWNLOAD, RENDER, CANCEL, DELETE, READ, UNREAD }
 private data class ChapterConfirmation(val action: ChapterAction, val ids: List<Long>)
 private val ChapterSelectionSaver = Saver<Set<Long>, LongArray>(save = { it.toLongArray() }, restore = { it.toSet() })
@@ -134,6 +137,7 @@ private fun NovelContent(
     val modelState by observeScreenFlow(modelFlow, retry)
     val modelInstalled = (modelState as? ScreenLoad.Ready)?.data == true
     var chapterQuery by rememberSaveable { mutableStateOf("") }
+    var chapterFilter by rememberSaveable { mutableStateOf(ChapterFilter.ALL) }
     var selectedBranch by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedIds by rememberSaveable(stateSaver = ChapterSelectionSaver) { mutableStateOf(emptySet<Long>()) }
     var branchMenu by remember { mutableStateOf(false) }
@@ -147,14 +151,55 @@ private fun NovelContent(
     var deleteMode by rememberSaveable { mutableStateOf(DeleteMode.AUDIO) }
     val branches = remember(chapters) { chapters.map { it.branchKey() }.distinct() }
     val effectiveBranch = selectedBranch?.takeIf { it in branches } ?: branches.firstOrNull()
-    val visibleChapters = remember(chapters, effectiveBranch, chapterQuery) {
-        chapters.filter { it.branchKey() == effectiveBranch && it.name.contains(chapterQuery.trim(), ignoreCase = true) }
+    val visibleChapters = remember(chapters, effectiveBranch, chapterQuery, chapterFilter) {
+        chapters.filter { chapter ->
+            if (chapter.branchKey() != effectiveBranch) return@filter false
+            if (chapterQuery.isNotBlank() && !chapter.name.contains(chapterQuery.trim(), ignoreCase = true)) return@filter false
+            when (chapterFilter) {
+                ChapterFilter.ALL -> true
+                ChapterFilter.DOWNLOADED -> chapter.hasLocalContent()
+                ChapterFilter.AUDIO -> chapter.audioPath != null
+                ChapterFilter.UNREAD -> !chapter.isRead
+            }
+        }
     }
     val visibleIds = remember(visibleChapters) { visibleChapters.mapTo(LinkedHashSet()) { it.id } }
     val selected = remember(selectedIds, visibleIds) { selectedIds.intersect(visibleIds) }
     val continueChapter = remember(chapters, novel?.lastReadChapterId, visibleChapters) {
         chapters.firstOrNull { it.id == novel?.lastReadChapterId }
             ?: visibleChapters.firstOrNull { !it.isRead } ?: visibleChapters.firstOrNull()
+    }
+    val listState = rememberLazyListState()
+    var jumpTarget by remember { mutableStateOf<Long?>(null) }
+    val chapterListOffset = remember(busy, actionError, detailsState, novel, continueChapter, source, workState, branches, visibleChapters) {
+        var count = 0
+        if (busy) count++
+        if (actionError != null) count++
+        when (detailsState) {
+            ScreenLoad.Loading, is ScreenLoad.Error -> count++
+            is ScreenLoad.Ready -> if (novel == null) count++ else {
+                count += 2
+                if (continueChapter != null) count++
+                if (source?.requiresAuth == true) count++
+                count++
+                when (workState) {
+                    ScreenLoad.Loading, is ScreenLoad.Error -> count++
+                    is ScreenLoad.Ready -> Unit
+                }
+                count += 2
+                if (branches.size > 1) count++
+                count += 2
+            }
+        }
+        count
+    }
+    LaunchedEffect(jumpTarget, visibleChapters) {
+        val target = jumpTarget ?: return@LaunchedEffect
+        val index = visibleChapters.indexOfFirst { it.id == target }
+        if (index >= 0) {
+            listState.animateScrollToItem(chapterListOffset + index)
+            jumpTarget = null
+        }
     }
 
     LaunchedEffect(visibleIds, detailsState is ScreenLoad.Ready) {
@@ -253,6 +298,7 @@ private fun NovelContent(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -350,7 +396,37 @@ private fun NovelContent(
                             is ScreenLoad.Ready -> Unit
                         }
                         item(key = "chapter-title") {
-                            Text("Главы: ${visibleChapters.size} из ${chapters.size}", style = MaterialTheme.typography.titleLarge)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text("Главы: ${visibleChapters.size} из ${chapters.size}", style = MaterialTheme.typography.titleLarge)
+                                val lastReadId = novel.lastReadChapterId
+                                if (lastReadId != null && chapters.any { it.id == lastReadId }) {
+                                    TextButton(onClick = {
+                                        val chapter = chapters.first { it.id == lastReadId }
+                                        selectedBranch = chapter.branchKey()
+                                        chapterFilter = ChapterFilter.ALL
+                                        chapterQuery = ""
+                                        jumpTarget = lastReadId
+                                    }) { Text("К прочитанной") }
+                                }
+                            }
+                        }
+                        item(key = "chapter-filter-chips") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ChapterFilter.entries.forEach { filter ->
+                                    FilterChip(
+                                        selected = chapterFilter == filter,
+                                        onClick = { chapterFilter = filter },
+                                        label = { Text(filter.title) },
+                                    )
+                                }
+                            }
                         }
                         if (branches.size > 1) item(key = "branch") {
                             Column {

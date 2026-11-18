@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -26,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -44,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -189,6 +194,7 @@ fun ReaderScreen(
     var saving by remember { mutableStateOf(false) }
     var showSpeed by rememberSaveable { mutableStateOf(false) }
     var showTimer by rememberSaveable { mutableStateOf(false) }
+    var playerExpanded by rememberSaveable { mutableStateOf(true) }
     val canPlay = opened && playback.connected && playback.chapterId == chapterId && document.audioExists
 
     fun selectWord(word: String) {
@@ -238,6 +244,7 @@ fun ReaderScreen(
                 next = document.next?.let { { switchChapter(it) } },
                 onToggle = player::togglePlayPause, onSeek = player::seekTo,
                 onSpeed = { showSpeed = true }, onTimer = { showTimer = true },
+                expanded = playerExpanded, onToggleExpand = { playerExpanded = !playerExpanded },
             )
         },
     ) { padding ->
@@ -357,36 +364,63 @@ private fun PlayerControls(
     onSeek: (Long) -> Unit,
     onSpeed: () -> Unit,
     onTimer: () -> Unit,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
 ) {
     var scrubbing by remember { mutableStateOf<Float?>(null) }
     val duration = state.durationMs.coerceAtLeast(1).toFloat()
     LaunchedEffect(state.chapterId) { scrubbing = null }
     Surface(tonalElevation = 4.dp) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            Slider(
-                value = (scrubbing ?: state.positionMs.toFloat()).coerceIn(0f, duration),
-                onValueChange = { scrubbing = it },
-                onValueChangeFinished = { scrubbing?.let { onSeek(it.toLong()) }; scrubbing = null },
-                valueRange = 0f..duration, enabled = enabled && state.durationMs > 0,
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(if (enabled) ReaderText.time((scrubbing ?: state.positionMs.toFloat()).toLong()) else "—", style = MaterialTheme.typography.labelSmall)
-                Text(if (enabled) ReaderText.time(state.durationMs) else "—", style = MaterialTheme.typography.labelSmall)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                IconButton(onClick = { previous?.invoke() }, enabled = previous != null) { Icon(Icons.Default.SkipPrevious, "Предыдущая глава") }
-                IconButton(onClick = { onSeek((state.positionMs - 10_000).coerceAtLeast(0)) }, enabled = enabled) { Icon(Icons.Default.Replay10, "Назад 10 секунд") }
-                IconButton(onClick = onToggle, enabled = enabled) {
-                    if (state.isBuffering && enabled) CircularProgressIndicator()
-                    else Icon(if (state.isPlaying && enabled) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.isPlaying && enabled) "Пауза" else "Слушать")
+        if (!expanded) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                LinearProgressIndicator(
+                    progress = { if (enabled && state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onToggle, enabled = enabled) {
+                        if (state.isBuffering && enabled) CircularProgressIndicator(Modifier.size(24.dp))
+                        else Icon(if (state.isPlaying && enabled) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.isPlaying && enabled) "Пауза" else "Слушать")
+                    }
+                    Text(
+                        if (enabled) "${ReaderText.time(state.positionMs)} / ${ReaderText.time(state.durationMs)}" else "Аудио недоступно",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                    )
+                    IconButton(onClick = onToggleExpand) { Icon(Icons.Default.KeyboardArrowUp, "Развернуть плеер") }
                 }
-                IconButton(onClick = { onSeek((state.positionMs + 10_000).coerceAtMost(state.durationMs)) }, enabled = enabled) { Icon(Icons.Default.Forward10, "Вперёд 10 секунд") }
-                IconButton(onClick = { next?.invoke() }, enabled = next != null) { Icon(Icons.Default.SkipNext, "Следующая глава") }
+                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onSpeed, enabled = state.connected) { Text("%.1f×".format(state.speed)) }
-                TextButton(onClick = onTimer, enabled = state.connected) { Text(if (state.sleepRemainingMs > 0) "Сон: ${ReaderText.time(state.sleepRemainingMs)}" else "Таймер сна") }
+        } else {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(onClick = onToggleExpand) { Icon(Icons.Default.KeyboardArrowDown, "Свернуть плеер") }
+                }
+                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                Slider(
+                    value = (scrubbing ?: state.positionMs.toFloat()).coerceIn(0f, duration),
+                    onValueChange = { scrubbing = it },
+                    onValueChangeFinished = { scrubbing?.let { onSeek(it.toLong()) }; scrubbing = null },
+                    valueRange = 0f..duration, enabled = enabled && state.durationMs > 0,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (enabled) ReaderText.time((scrubbing ?: state.positionMs.toFloat()).toLong()) else "—", style = MaterialTheme.typography.labelSmall)
+                    Text(if (enabled) ReaderText.time(state.durationMs) else "—", style = MaterialTheme.typography.labelSmall)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    IconButton(onClick = { previous?.invoke() }, enabled = previous != null) { Icon(Icons.Default.SkipPrevious, "Предыдущая глава") }
+                    IconButton(onClick = { onSeek((state.positionMs - 10_000).coerceAtLeast(0)) }, enabled = enabled) { Icon(Icons.Default.Replay10, "Назад 10 секунд") }
+                    IconButton(onClick = onToggle, enabled = enabled) {
+                        if (state.isBuffering && enabled) CircularProgressIndicator()
+                        else Icon(if (state.isPlaying && enabled) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.isPlaying && enabled) "Пауза" else "Слушать")
+                    }
+                    IconButton(onClick = { onSeek((state.positionMs + 10_000).coerceAtMost(state.durationMs)) }, enabled = enabled) { Icon(Icons.Default.Forward10, "Вперёд 10 секунд") }
+                    IconButton(onClick = { next?.invoke() }, enabled = next != null) { Icon(Icons.Default.SkipNext, "Следующая глава") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = onSpeed, enabled = state.connected) { Text("%.1f×".format(state.speed)) }
+                    TextButton(onClick = onTimer, enabled = state.connected) { Text(if (state.sleepRemainingMs > 0) "Сон: ${ReaderText.time(state.sleepRemainingMs)}" else "Таймер сна") }
+                }
             }
         }
     }
