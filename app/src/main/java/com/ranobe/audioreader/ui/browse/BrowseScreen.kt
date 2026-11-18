@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -49,8 +50,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ranobe.audioreader.data.remote.BrowseOptions
+import com.ranobe.audioreader.data.remote.CustomSourceEntry
 import com.ranobe.audioreader.data.remote.NovelItem
+import com.ranobe.audioreader.data.remote.sources.UniversalSource
 import com.ranobe.audioreader.di.AppContainer
 import com.ranobe.audioreader.ui.library.ErrorMessage
 import com.ranobe.audioreader.ui.library.LoadingMessage
@@ -83,7 +87,17 @@ fun BrowseScreen(
     var openingItem by remember { mutableStateOf<NovelItem?>(null) }
     var openingError by remember { mutableStateOf<String?>(null) }
     var openingRetry by remember { mutableIntStateOf(0) }
-    val source = remember(container, sourceId) { container.sourceById(sourceId) }
+    val customEntries by container.customSourceStore.entries.collectAsStateWithLifecycle()
+    val allSources = remember(container, customEntries) { container.sources + customEntries.map { UniversalSource(container.httpClient, it) } }
+    val source = remember(container, sourceId, customEntries) { container.sourceById(sourceId) }
+    val isCustom = sourceId.startsWith("custom-")
+    var bookUrl by rememberSaveable { mutableStateOf("") }
+    var urlError by remember { mutableStateOf<String?>(null) }
+    var showAddSource by remember { mutableStateOf(false) }
+    var addName by remember { mutableStateOf("") }
+    var addUrl by remember { mutableStateOf("") }
+    var addError by remember { mutableStateOf<String?>(null) }
+    var deleteEntry by remember { mutableStateOf<CustomSourceEntry?>(null) }
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
 
@@ -114,12 +128,25 @@ fun BrowseScreen(
         resetResults()
     }
 
+    fun openCustomBook() {
+        val url = bookUrl.trim()
+        if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
+            urlError = "Вставьте полную ссылку вида https://сайт/книга"
+            return
+        }
+        urlError = null
+        keyboard?.hide()
+        openingError = null
+        openingItem = NovelItem(path = url, name = url)
+    }
+
     LaunchedEffect(source, query, submitted, latest, generation, page, retry) {
         val requestGeneration = generation
         val requestPage = page
         val requestRetry = retry
         fun isCurrentRequest() = generation == requestGeneration && page == requestPage && retry == requestRetry
         val currentSource = source ?: return@LaunchedEffect
+        if (currentSource.id.startsWith("custom-")) return@LaunchedEffect
         if (query.isNotBlank() && !submitted) return@LaunchedEffect
         loading = true
         error = null
@@ -178,7 +205,7 @@ fun BrowseScreen(
             ) {
                 item(key = "sources") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(container.sources, key = { it.id }) { candidate ->
+                        items(allSources, key = { it.id }) { candidate ->
                             FilterChip(
                                 selected = sourceId == candidate.id,
                                 onClick = {
@@ -194,44 +221,110 @@ fun BrowseScreen(
                         }
                     }
                 }
-                item(key = "query") {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = ::changeQuery,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Поиск по названию") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = {
-                            if (query.isNotEmpty()) IconButton(onClick = { changeQuery("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Очистить поисковый запрос")
+                if (!isCustom) {
+                    item(key = "query") {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = ::changeQuery,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Поиск по названию") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (query.isNotEmpty()) IconButton(onClick = { changeQuery("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Очистить поисковый запрос")
+                                }
+                            },
+                        )
+                    }
+                    item(key = "search") {
+                        Button(onClick = ::submitSearch, enabled = source != null, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (query.isBlank()) "Обновить каталог" else "Найти")
+                        }
+                    }
+                    item(key = "modes") {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = !submitted && query.isBlank() && !latest,
+                                    onClick = { latest = false; query = ""; submitted = false; resetResults() },
+                                    label = { Text("Популярное") },
+                                )
                             }
-                        },
-                    )
-                }
-                item(key = "search") {
-                    Button(onClick = ::submitSearch, enabled = source != null, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (query.isBlank()) "Обновить каталог" else "Найти")
+                            item {
+                                FilterChip(
+                                    selected = !submitted && query.isBlank() && latest,
+                                    onClick = { latest = true; query = ""; submitted = false; resetResults() },
+                                    label = { Text("Последние обновления") },
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    item(key = "custom-url") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = bookUrl,
+                                onValueChange = { bookUrl = it; urlError = null },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Ссылка на оглавление книги") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                keyboardActions = KeyboardActions(onGo = { openCustomBook() }),
+                            )
+                            urlError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                            Button(onClick = ::openCustomBook, enabled = source != null, modifier = Modifier.fillMaxWidth()) {
+                                Text("Открыть книгу")
+                            }
+                            Text(
+                                "Вставьте адрес страницы со списком глав на сайте «${source?.name.orEmpty()}». Приложение само найдёт главы, скачает текст и озвучит его.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
-                item(key = "modes") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            FilterChip(
-                                selected = !submitted && query.isBlank() && !latest,
-                                onClick = { latest = false; query = ""; submitted = false; resetResults() },
-                                label = { Text("Популярное") },
+                item(key = "custom-sources") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Свои сайты", style = MaterialTheme.typography.titleMedium)
+                        if (customEntries.isEmpty()) {
+                            Text(
+                                "Добавьте любой сайт с книгами — не только ранобэ. Книги открываются по ссылке на оглавление.",
+                                style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        item {
-                            FilterChip(
-                                selected = !submitted && query.isBlank() && latest,
-                                onClick = { latest = true; query = ""; submitted = false; resetResults() },
-                                label = { Text("Последние обновления") },
-                            )
+                        customEntries.forEach { entry ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(entry.name, style = MaterialTheme.typography.titleSmall)
+                                    Text(entry.baseUrl, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                FilterChip(
+                                    selected = sourceId == entry.id,
+                                    onClick = {
+                                        if (sourceId != entry.id) {
+                                            sourceId = entry.id
+                                            query = ""
+                                            submitted = false
+                                            resetResults()
+                                        }
+                                    },
+                                    label = { Text("Выбрать") },
+                                )
+                                IconButton(onClick = { deleteEntry = entry }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Удалить источник ${entry.name}")
+                                }
+                            }
                         }
+                        OutlinedButton(
+                            onClick = { addName = ""; addUrl = ""; addError = null; showAddSource = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Добавить сайт") }
                     }
                 }
                 if (source?.requiresAuth == true) item(key = "auth") {
@@ -280,7 +373,7 @@ fun BrowseScreen(
                         )
                     }
                 }
-                if (!loading && error == null && source != null && (query.isBlank() || submitted)) {
+                if (!loading && error == null && source != null && !isCustom && (query.isBlank() || submitted)) {
                     if (results.isEmpty()) item(key = "empty") {
                         Text("Книги не найдены. Попробуйте другое название или источник.")
                     }
@@ -322,6 +415,54 @@ fun BrowseScreen(
                 if (openingError != null) TextButton(onClick = { openingError = null; openingRetry++ }) { Text("Повторить") }
             },
             dismissButton = { TextButton(onClick = { openingItem = null }) { Text("Отмена") } },
+        )
+    }
+
+    if (showAddSource) AlertDialog(
+        onDismissRequest = { showAddSource = false },
+        title = { Text("Новый сайт") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = addName, onValueChange = { addName = it }, label = { Text("Название") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = addUrl, onValueChange = { addUrl = it }, label = { Text("Адрес сайта, например https://example.com") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                addError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                try {
+                    val entry = container.customSourceStore.add(addName, addUrl)
+                    showAddSource = false
+                    sourceId = entry.id
+                    query = ""
+                    submitted = false
+                    resetResults()
+                } catch (failure: IllegalArgumentException) {
+                    addError = failure.message
+                }
+            }) { Text("Добавить") }
+        },
+        dismissButton = { TextButton(onClick = { showAddSource = false }) { Text("Отмена") } },
+    )
+
+    deleteEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { deleteEntry = null },
+            title = { Text("Удалить источник?") },
+            text = { Text("«${entry.name}» исчезнет из списка. Уже скачанные книги и аудио останутся, но обновлять их главы с этого сайта будет нельзя.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    container.customSourceStore.remove(entry.id)
+                    if (sourceId == entry.id) {
+                        sourceId = container.sources.firstOrNull()?.id.orEmpty()
+                        query = ""
+                        submitted = false
+                        resetResults()
+                    }
+                    deleteEntry = null
+                }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleteEntry = null }) { Text("Отмена") } },
         )
     }
 }

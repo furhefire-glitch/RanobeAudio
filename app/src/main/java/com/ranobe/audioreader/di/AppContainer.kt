@@ -5,11 +5,13 @@ import androidx.room.Room
 import com.ranobe.audioreader.data.local.AppDatabase
 import com.ranobe.audioreader.data.local.storage.AudioFileManager
 import com.ranobe.audioreader.data.remote.AuthStore
+import com.ranobe.audioreader.data.remote.CustomSourceStore
 import com.ranobe.audioreader.data.remote.HttpClientProvider
 import com.ranobe.audioreader.data.remote.NovelSource
 import com.ranobe.audioreader.data.remote.sources.RanobeLibSource
 import com.ranobe.audioreader.data.remote.sources.RanobehubSource
 import com.ranobe.audioreader.data.remote.sources.RulateSource
+import com.ranobe.audioreader.data.remote.sources.UniversalSource
 import com.ranobe.audioreader.domain.audio.SileroModelManager
 import com.ranobe.audioreader.domain.text.StressDictionary
 import kotlinx.coroutines.CoroutineScope
@@ -38,7 +40,12 @@ class AppContainer(context: Context) {
         RulateSource(httpClient),
     )
 
-    fun sourceById(id: String): NovelSource? = sources.firstOrNull { it.id == id }
+    val customSourceStore = CustomSourceStore(context)
+
+    fun customSources(): List<NovelSource> = customSourceStore.entries.value.map { UniversalSource(httpClient, it) }
+
+    fun sourceById(id: String): NovelSource? =
+        sources.firstOrNull { it.id == id } ?: customSources().firstOrNull { it.id == id }
 
     val settingsRepository = com.ranobe.audioreader.data.settings.SettingsRepository(context)
     val sileroModelManager = SileroModelManager(context, httpClient)

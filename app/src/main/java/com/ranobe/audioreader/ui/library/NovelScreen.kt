@@ -415,9 +415,9 @@ private fun NovelContent(
                             }
                         }
                         item(key = "chapter-filter-chips") {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
+                            FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 ChapterFilter.entries.forEach { filter ->
                                     FilterChip(
